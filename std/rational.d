@@ -62,22 +62,6 @@ template isRational(T)
 }
 
 /**
- * Returns a common integral type between $(D I1) and $(D I2).  This is defined
- * as the type returned by I1.init * I2.init.
- */
-template CommonInteger(I1, I2)
-    if (isIntegerLike!I1 && isIntegerLike!I2)
-{
-    alias typeof(Unqual!(I1).init * Unqual!(I2).init) CommonInteger;
-}
-
-unittest
-{
-    static assert(is(CommonInteger!(BigInt, int) == BigInt));
-    static assert(is(CommonInteger!(byte, int) == int));
-}
-
-/**
  * Returns a common rational type between $(D R1) and $(D R2), which
  * will be a Rational based on the CommonInteger of their underlying
  * integer types (or just on the CommonInteger of ($D R1) and $(D R2),

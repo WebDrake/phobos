@@ -3721,6 +3721,26 @@ unittest
 
 
 /**
+ * Returns a common integral type between $(D I1) and $(D I2).  This is defined
+ * as the type returned by I1.init * I2.init.  Unlike CommonType this should
+ * work for any types that have $(D isIntegerLike) properties; in particular,
+ * for all built-in integer types and for $(D std.bigint.BigInt).
+ */
+template CommonInteger(I1, I2)
+    if (isIntegerLike!I1 && isIntegerLike!I2)
+{
+    alias typeof(Unqual!(I1).init * Unqual!(I2).init) CommonInteger;
+}
+
+unittest
+{
+    import std.bigint;
+    static assert(is(CommonInteger!(BigInt, int) == BigInt));
+    static assert(is(CommonInteger!(byte, int) == int));
+}
+
+
+/**
  * Returns a tuple with all possible target types of an implicit
  * conversion of a value of type $(D_PARAM T).
  *
