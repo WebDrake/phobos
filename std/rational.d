@@ -51,8 +51,7 @@ import std.algorithm, std.bigint, std.conv, std.exception, std.math,
 
 alias std.math.abs abs;  // Allow cross-module overloading.
 
-/**
- * Checks whether $(D T) is structurally an integer, i.e. whether it supports
+/* Checks whether $(D T) is structurally an integer, i.e. whether it supports
  * all of the operations an integer type should support.  Does not check the
  * nominal type of $(D T).  In particular, the following must compile:
  *
@@ -74,7 +73,7 @@ alias std.math.abs abs;  // Allow cross-module overloading.
  * All builtin D integers and $(D std.bigint.BigInt) are integer-like by this
  * definition.
  */
-template isIntegerLike(T)
+private template isIntegerLike(T)
 {
     static if (is(T == const) || is(T == immutable))
     {
@@ -133,11 +132,10 @@ template isRational(T)
         is(typeof(T.init.denominator)) && is(typeof(T.init.numerator));
 }
 
-/**
- * Returns a common integral type between $(D I1) and $(D I2).  This is defined
+/* Returns a common integral type between $(D I1) and $(D I2).  This is defined
  * as the type returned by I1.init * I2.init.
  */
-template CommonInteger(I1, I2)
+private template CommonInteger(I1, I2)
     if (isIntegerLike!I1 && isIntegerLike!I2)
 {
     alias typeof(Unqual!(I1).init * Unqual!(I2).init) CommonInteger;
@@ -149,13 +147,12 @@ unittest
     static assert(is(CommonInteger!(byte, int) == int));
 }
 
-/**
- * Returns a common rational type between $(D R1) and $(D R2), which
+/* Returns a common rational type between $(D R1) and $(D R2), which
  * will be a Rational based on the CommonInteger of their underlying
  * integer types (or just on the CommonInteger of ($D R1) and $(D R2),
  * if they themselves are integers).
  */
-template CommonRational(R1, R2)
+private template CommonRational(R1, R2)
 {
     static if (isRational!R1)
     {
@@ -991,11 +988,10 @@ unittest
 }
 
 
-/**
- * Find the greatest common factor (aka greatest common divisor)
+/* Find the greatest common factor (aka greatest common divisor)
  * of m and n.
  */
-CommonInteger!(I1, I2) gcf(I1, I2)(I1 m, I2 n)
+private CommonInteger!(I1, I2) gcf(I1, I2)(I1 m, I2 n)
     if (isIntegerLike!I1 && isIntegerLike!I2)
 {
     static if (is(I1 == const) || is(I1 == immutable) ||
@@ -1033,8 +1029,8 @@ unittest
     assert(gcf(BigInt("8589934596"), BigInt("295147905179352825852")) == 12);
 }
 
-/// Find the least common multiple of n1, n2.
-CommonInteger!(I1, I2) lcm(I1, I2)(I1 n1, I2 n2)
+// Find the least common multiple of n1, n2.
+private CommonInteger!(I1, I2) lcm(I1, I2)(I1 n1, I2 n2)
     if (isIntegerLike!I1 && isIntegerLike!I2)
 {
     n1 = abs(n1);
