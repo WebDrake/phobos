@@ -2165,6 +2165,7 @@ unittest
     assert(lcm(2 * 5 * 7 * 7, 5 * 7 * 11) == 2 * 5 * 7 * 7 * 11);
     const int a = 5 * 13 * 23 * 23, b = 13 * 59;
     assert(lcm(a, b) == 5 * 13 * 23 * 23 * 59);
+    assert(lcm(42, 42) == 42);
 
     // Values from Haskell
     import std.bigint;
