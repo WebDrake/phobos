@@ -47,7 +47,7 @@
 module std.rational;
 
 import std.algorithm, std.bigint, std.conv, std.exception, std.math,
-       std.traits;
+       std.numeric, std.traits;
 
 alias std.math.abs abs;  // Allow cross-module overloading.
 
@@ -181,11 +181,11 @@ struct Rational(Int)
         /* Cancel common factors first, then multiply.  This prevents
          * overflows and is much more efficient when using BigInts.
          */
-        auto divisor = gcf(this.num, rhs.den);
+        auto divisor = gcd(this.num, rhs.den);
         this.num /= divisor;
         rhs.den /= divisor;
 
-        divisor = gcf(this.den, rhs.num);
+        divisor = gcd(this.den, rhs.num);
         this.den /= divisor;
         rhs.num /= divisor;
 
@@ -202,7 +202,7 @@ struct Rational(Int)
     typeof(this) opOpAssign(string op, Rhs)(Rhs rhs)
         if (op == "*" && isIntegerLike!Rhs)
     {
-        auto divisor = gcf(this.den, rhs);
+        auto divisor = gcd(this.den, rhs);
         this.den /= divisor;
         rhs /= divisor;
         this.num *= rhs;
@@ -240,7 +240,7 @@ struct Rational(Int)
     typeof(this) opOpAssign(string op, Rhs)(Rhs rhs)
         if (op == "/" && isIntegerLike!Rhs)
     {
-        auto divisor = gcf(this.num, rhs);
+        auto divisor = gcd(this.num, rhs);
         this.num /= divisor;
         rhs /= divisor;
         this.den *= rhs;
@@ -655,7 +655,7 @@ private :
             return;
         }
 
-        auto divisor = gcf(num, den);
+        auto divisor = gcd(num, den);
         num /= divisor;
         den /= divisor;
 
@@ -902,49 +902,6 @@ unittest
     assert(abs(cast(real) eRational - E) < myEpsilon);
 }
 
-
-/**
- * Find the greatest common factor (aka greatest common divisor)
- * of m and n.
- */
-CommonInteger!(I1, I2) gcf(I1, I2)(I1 m, I2 n)
-    if (isIntegerLike!I1 && isIntegerLike!I2)
-{
-    static if (is(I1 == const) || is(I1 == immutable) ||
-               is(I2 == const) || is(I2 == immutable))
-    {
-        // Doesn't work with immutable(BigInt).
-        return gcf!(Unqual!I1, Unqual!I2)(m, n);
-    }
-    else
-    {
-        typeof(return) a = abs(m);
-        typeof(return) b = abs(n);
-
-        while (b)
-        {
-            auto t = b;
-            b = a % b;
-            a = t;
-        }
-
-        return a;
-    }
-}
-
-unittest
-{
-    assert(gcf(0, 0) == 0);
-    assert(gcf(0, 1) == 1);
-    assert(gcf(999, 0) == 999);
-    assert(gcf(to!(immutable(int))(8), to!(const(int))(12)) == 4);
-
-    // Values from the Maxima computer algebra system.
-    assert(gcf(BigInt(314_156_535UL), BigInt(27_182_818_284UL)) == BigInt(3));
-    assert(gcf(8675309, 362436) == 1);
-    assert(gcf(BigInt("8589934596"), BigInt("295147905179352825852")) == 12);
-}
-
 /// Find the least common multiple of n1, n2.
 CommonInteger!(I1, I2) lcm(I1, I2)(I1 n1, I2 n2)
     if (isIntegerLike!I1 && isIntegerLike!I2)
@@ -955,7 +912,7 @@ CommonInteger!(I1, I2) lcm(I1, I2)(I1 n1, I2 n2)
     {
         return n1;
     }
-    return (n1 / gcf(n1, n2)) * n2;
+    return (n1 / gcd(n1, n2)) * n2;
 }
 
 /// Returns the largest integer less than or equal to $(D r).

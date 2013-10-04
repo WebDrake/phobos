@@ -2090,29 +2090,50 @@ unittest
 }
 
 /**
-Computes the greatest common divisor of $(D a) and $(D b) by using
-Euler's algorithm.
+ * Find the greatest common divisor of $(D m) and $(D n) using
+ * Euclid's algorithm.
  */
-T gcd(T)(T a, T b) {
-    static if (is(T == const) || is(T == immutable)) {
-        return gcd!(Unqual!T)(a, b);
-    } else {
-        static if (T.min < 0) {
-            enforce(a >= 0 && b >=0);
-        }
-        while (b) {
+CommonInteger!(I1, I2) gcd(I1, I2)(I1 m, I2 n)
+    if (isIntegerLike!I1 && isIntegerLike!I2)
+{
+    static if (is(I1 == const) || is(I1 == immutable) ||
+               is(I2 == const) || is(I2 == immutable))
+    {
+        // Doesn't work with immutable(BigInt).
+        return gcd!(Unqual!I1, Unqual!I2)(m, n);
+    }
+    else
+    {
+        typeof(return) a = std.math.abs(m);
+        typeof(return) b = std.math.abs(n);
+
+        while (b)
+        {
             auto t = b;
             b = a % b;
             a = t;
         }
+
         return a;
     }
 }
 
-unittest {
+unittest
+{
     assert(gcd(2 * 5 * 7 * 7, 5 * 7 * 11) == 5 * 7);
     const int a = 5 * 13 * 23 * 23, b = 13 * 59;
     assert(gcd(a, b) == 13);
+
+    assert(gcd(0, 0) == 0);
+    assert(gcd(0, 1) == 1);
+    assert(gcd(999, 0) == 999);
+    assert(gcd(to!(immutable(int))(8), to!(const(int))(12)) == 4);
+
+    // Values from the Maxima computer algebra system.
+    import std.bigint;
+    assert(gcd(BigInt(314_156_535UL), BigInt(27_182_818_284UL)) == BigInt(3));
+    assert(gcd(8675309, 362436) == 1);
+    assert(gcd(BigInt("8589934596"), BigInt("295147905179352825852")) == 12);
 }
 
 /*
