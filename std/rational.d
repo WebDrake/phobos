@@ -902,44 +902,6 @@ unittest
     assert(abs(cast(real) eRational - E) < myEpsilon);
 }
 
-/// Find the least common multiple of $(D m) and $(D n).
-CommonInteger!(I1, I2) lcm(I1, I2)(I1 m, I2 n)
-    if (isIntegerLike!I1 && isIntegerLike!I2)
-{
-    static if (is(I1 == const) || is(I1 == immutable) ||
-               is(I2 == const) || is(I2 == immutable))
-    {
-        // Doesn't work with immutable(BigInt).
-        return lcm!(Unqual!I1, Unqual!I2)(m, n);
-    }
-    else
-    {
-        typeof(return) a = std.math.abs(m);
-        typeof(return) b = std.math.abs(n);
-        if (a == b)
-        {
-            return a;
-        }
-        return (a / gcd(a, b)) * b;
-    }
-}
-
-unittest
-{
-    assert(lcm(0, 1) == 0);
-    assert(lcm(14, 21) == 42);
-    assert(lcm(2 * 5 * 7 * 7, 5 * 7 * 11) == 2 * 5 * 7 * 7 * 11);
-    const int a = 5 * 13 * 23 * 23, b = 13 * 59;
-    assert(lcm(a, b) == 5 * 13 * 23 * 23 * 59);
-
-    // Values from Haskell
-    import std.bigint;
-    assert(lcm(314_156_535UL, BigInt(27_182_818_284UL))
-           == BigInt("2846553334545361980"));
-    assert(lcm(BigInt("8589934596"), BigInt("295147905179352825852"))
-           == BigInt("211275100136420868639704831316"));
-}
-
 /// Returns the largest integer less than or equal to $(D r).
 Int floor(Int)(Rational!Int r)
 {
