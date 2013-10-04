@@ -854,6 +854,9 @@ unittest
     assert(10 > rational(9L, 10));
     assert(2 > rational(5, 4));
     assert(1 < rational(5U, 4));
+    assert(rational(4, 2) <= 2);
+    assert(rational(4, 2) >= 2);
+    assert(rational(4, 2) == 2);
 
     // Test creating rationals of value zero.
     auto zero = rational(0, 8);
@@ -880,6 +883,11 @@ unittest
         writeln(myRational);
         static assert(myRational == rational(-15, 32));
     }
+
+    // Test output as string
+    assert(to!string(rational(3, 4)) == "3/4");
+    assert(to!string(rational(BigInt(1_234_567_890L), BigInt(2_345_678_901L)))
+           == "137174210/260630989");
 }
 
 /**
@@ -973,10 +981,16 @@ unittest
     // Start with simple cases.
     assert(toRational!int(0.5) == rational(1, 2));
     assert(toRational!BigInt(0.333333333333333L) == rational(BigInt(1), BigInt(3)));
+    assert(toRational!BigInt(1.5) == rational(BigInt(3), BigInt(2)));
     assert(toRational!int(2.470588235294118) == rational(cast(int) 42, cast(int) 17));
     assert(toRational!long(2.007874015748032) == rational(255L, 127L));
     assert(toRational!int( 3.0L / 7.0L) == rational(3, 7));
     assert(toRational!int( 7.0L / 3.0L) == rational(7, 3));
+
+    /* If our floating-point number is less than the tolerance value, we simply set it
+     * to 0.
+     */
+    assert(toRational!int(1e-9) == rational(0, 1));
 
     // Now for some fun.
     real myEpsilon = 1e-8;
@@ -1058,6 +1072,7 @@ unittest
     assert(lcm(2 * 5 * 7 * 7, 5 * 7 * 11) == 2 * 5 * 7 * 7 * 11);
     const int a = 5 * 13 * 23 * 23, b = 13 * 59;
     assert(lcm(a, b) == 5 * 13 * 23 * 23 * 59);
+    assert(lcm(42, 42) == 42);
 
     // Values from Haskell
     import std.bigint;
