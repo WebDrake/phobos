@@ -4086,3 +4086,42 @@ private struct SplitMix64(StateElement)
         return s ^ (s >>> 30);
     }
 }
+
+unittest
+{
+    // FIXME: replace these with proper unittests.  This is just a sanity
+    // check to confirm consistency of behaviour
+    auto splitmix64 = SplitMix64!(ulong)(123456, 0x9E3779B97F4A7C15uL);
+
+    import std.stdio : write, writeln;
+
+    foreach (_; 0 .. 10)
+    {
+        write("  ", splitmix64());
+    }
+    writeln;
+
+    shared shared64 = SplitMix64!(ulong)(123456, 0x9E3779B97F4A7C15uL);
+
+    foreach (_; 0 .. 10)
+    {
+        write("  ", shared64());
+    }
+    writeln;
+
+    auto splitmix32 = SplitMix64!(uint)(123456, 0x9E3779B97F4A7C15uL);
+
+    foreach (_; 0 .. 10)
+    {
+        write("  ", splitmix32());
+    }
+    writeln;
+
+    shared shared32 = SplitMix64!(uint)(123456, 0x9E3779B97F4A7C15uL);
+
+    foreach (_; 0 .. 10)
+    {
+        write("  ", shared32());
+    }
+    writeln;
+}
