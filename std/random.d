@@ -1795,91 +1795,33 @@ else
     finalizer from
     http://zimbry.blogspot.com/2011/09/better-bit-mixing-improving-on.html.
     +/
-    static if (has64BitCAS)
     private ulong globalSplitMix()()
     {
-        import core.atomic : atomicLoad, atomicOp, atomicStore, MemoryOrder;
-        shared static ulong _globalSeed;
-        shared static ulong _globalGamma;
-        ulong gamma = atomicLoad!(MemoryOrder.raw)(_globalGamma);
-        if (!gamma)
-        {
-            synchronized
-            {
-                gamma = atomicLoad(_globalGamma);
-                if (!gamma)
-                {
-                    // gamma hasn't been set yet, so initialize.
-                    ulong initialSeed = void;
-                    oneTimeInitSeedAndGamma(initialSeed, gamma);
-                    atomicStore(_globalSeed, initialSeed);
-                    atomicStore(_globalGamma, gamma);
-                }
-            }
-            assert(gamma);
-        }
-        // Stafford Mix05
-        ulong x = atomicOp!"+="(_globalSeed, gamma);
-        x = (x ^ (x >>> 31)) * 0x79c1_35c1_674b_9addUL;
-        x = (x ^ (x >>> 29)) * 0x54c7_7c86_f691_3e45UL;
-        return x ^ (x >>> 30);
-    }
-    /+
-    Similar to above but without 64-bit atomic ops. (All current platforms
-    supported by DMD or LDC have 64-bit atomic ops, but in the future some
-    might not.)
-    +/
-    private auto globalSplitMixNo64BitCAS()()
-    {
-        import core.atomic : atomicLoad, atomicOp, atomicStore, MemoryOrder;
-        shared static uint _globalSeedLow;
-        shared static uint _globalSeedHigh;
-        shared static uint _globalGammaLow;
-        shared static uint _globalGammaHigh;
-        uint gammaLow = atomicLoad!(MemoryOrder.raw)(_globalGammaLow);
-        if (!gammaLow)
-        {
-            synchronized
-            {
-                gammaLow = atomicLoad(_globalGammaLow);
-                if (!gammaLow)
-                {
-                    // gamma hasn't been set yet, so initialize.
-                    ulong initialSeed = void, gamma = void;
-                    oneTimeInitSeedAndGamma(initialSeed, gamma);
-                    atomicStore(_globalSeedHigh, cast(uint) (initialSeed >>> 32));
-                    atomicStore(_globalSeedLow, cast(uint) initialSeed);
-                    gammaLow = cast(uint) gamma;
-                    uint h = cast(uint) (gamma >>> 32);
-                    assert(h);
-                    atomicStore(_globalGammaHigh, h);
-                    atomicStore(_globalGammaLow, gammaLow);
-                }
-            }
-            assert(gammaLow);
-        }
-        uint gammaHigh = atomicLoad!(MemoryOrder.raw)(_globalGammaHigh);
-        if (!gammaHigh)
-        {
-             gammaHigh = atomicLoad(_globalGammaHigh);
-             assert(gammaHigh);
-        }
-        // Under contention updates can be interleaved. This is completely fine.
-        uint low = atomicOp!"+="(_globalSeedLow, gammaLow);
-        uint high = atomicOp!"+="(_globalSeedHigh, gammaHigh + uint(low < gammaLow));
-        // Stafford Mix04
-        ulong x = (cast(ulong) high) << 32 + cast(ulong) low;
-        x = (x ^ (x >>> 33)) * 0x62a9_d9ed_7997_05f5UL;
-        x = (x ^ (x >>> 28)) * 0xcb24_d0a5_c88c_35b3UL;
-        return x ^ (x >>> 32);
-    }
-    static if (!has64BitCAS)
-    private alias globalSplitMix = globalSplitMixNo64BitCAS;
+        static if (has64BitCAS)
+            shared static SplitMix64!(ulong) splitmix64;
+        else
+            shared static SplitMix64!(uint) splitmix64;
 
-    // Verify `globalSplitMixNo64BitCAS` is compilable.
-    version (unittest)
-    {
-        static assert(is(typeof(globalSplitMixNo64BitCAS()) == ulong));
+        shared static bool isInitialized;
+
+        import core.atomic : atomicLoad, atomicStore, MemoryOrder;
+
+        bool initialized = atomicLoad!(MemoryOrder.raw)(isInitialized);
+        if (!initialized)
+        {
+            synchronized
+            {
+                initialized = atomicLoad(isInitialized);
+                if (!initialized)
+                {
+                    ulong initialSeed, gamma;
+                    oneTimeInitSeedAndGamma(initialSeed, gamma);
+                    splitmix64 = typeof(splitmix64)(initialSeed, gamma);
+                    atomicStore(isInitialized, true);
+                }
+            }
+        }
+        return splitmix64();
     }
 }
 
@@ -4031,5 +3973,97 @@ if (isInputRange!Range && hasLength!Range && isUniformRNG!UniformRNG)
             while (sample!UniformRNG(++n) == fst && n < n.max) {}
             assert(n < n.max);
         }
+    }
+}
+
+
+private struct SplitMix64(StateElement)
+{
+    static if (is(StateElement == ulong))
+    {
+        private ulong state;
+
+        private ulong gamma;
+    }
+    else static if (is(StateElement == uint))
+    {
+        private uint stateHigh;
+        private uint stateLow;
+
+        private uint gammaHigh;
+        private uint gammaLow;
+    }
+
+    public this(ulong s, ulong g)
+    {
+        static if (is(StateElement == ulong))
+        {
+            this.state = s;
+            this.gamma = g;
+        }
+        else static if (is(StateElement == uint))
+        {
+            this.stateLow = s % (1uL << 32);
+            this.stateHigh = cast(uint) (s >> 32);
+
+            this.gammaLow = g % (1uL << 32);
+            this.gammaHigh = cast(uint) (g >> 32);
+        }
+        else static assert(false);
+    }
+
+    public ulong opCall() shared
+    {
+        import core.atomic;
+
+        static if (is(StateElement == ulong))
+        {
+            static assert(has64BitCAS);
+            ulong s = atomicOp!"+="(this.state, this.gamma);
+            return stateToVariate(s);
+        }
+        else static if (is(StateElement == uint))
+        {
+            uint low = atomicOp!"+="(this.stateLow, this.gammaLow);
+            uint high = atomicOp!"+="(
+                this.stateHigh, this.gammaHigh + uint(low < this.gammaLow));
+            return stateToVariate(low, high);
+        }
+        else static assert(false);
+    }
+
+    public ulong opCall()
+    {
+        static if (is(StateElement == ulong))
+        {
+            this.state += this.gamma;
+            return stateToVariate(this.state);
+        }
+        else static if (is(StateElement == uint))
+        {
+            this.stateLow += this.gammaLow;
+            this.stateHigh += this.gammaHigh + uint(this.stateLow < this.gammaLow);
+            return stateToVariate(this.stateLow, this.stateHigh);
+        }
+        else static assert(false);
+    }
+
+    static if (is(StateElement == uint))
+    private static ulong toUlong(uint low, uint high)
+    {
+        return cast(ulong) low + ((cast(ulong) high) * (1uL << 32));
+    }
+
+    static if (is(StateElement == uint))
+    private static ulong stateToVariate(uint low, uint high)
+    {
+        return stateToVariate(toUlong(low, high));
+    }
+
+    private static ulong stateToVariate(ulong s)
+    {
+        s = (s ^ (s >>> 31)) * 0x79c1_35c1_674b_9addUL;
+        s = (s ^ (s >>> 29)) * 0x54c7_7c86_f691_3e45UL;
+        return s ^ (s >>> 30);
     }
 }
