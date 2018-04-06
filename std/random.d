@@ -4012,6 +4012,25 @@ private struct SplitMix64(StateElement)
         else static assert(false);
     }
 
+    public this (ulong s, ulong g) shared
+    {
+        import core.atomic : atomicStore;
+        static if (is(StateElement == ulong))
+        {
+            atomicStore(this.state, s);
+            atomicStore(this.gamma, g);
+        }
+        else static if (is(StateElement == uint))
+        {
+            atomicStore(this.stateLow, cast(uint) (s % (1uL << 32)));
+            atomicStore(this.stateHigh, cast(uint) (s >> 32));
+
+            atomicStore(this.gammaLow, cast(uint) (g % (1uL << 32)));
+            atomicStore(this.gammaHigh, cast(uint) (g >> 32));
+        }
+        else static assert(false);
+    }
+
     public ulong opCall() shared
     {
         import core.atomic;
@@ -4019,14 +4038,14 @@ private struct SplitMix64(StateElement)
         static if (is(StateElement == ulong))
         {
             static assert(has64BitCAS);
-            ulong s = atomicOp!"+="(this.state, this.gamma);
+            ulong s = atomicOp!"+="(this.state, atomicLoad(this.gamma));
             return stateToVariate(s);
         }
         else static if (is(StateElement == uint))
         {
-            uint low = atomicOp!"+="(this.stateLow, this.gammaLow);
-            uint high = atomicOp!"+="(
-                this.stateHigh, this.gammaHigh + uint(low < this.gammaLow));
+            uint low = atomicOp!"+="(this.stateLow, atomicLoad(this.gammaLow));
+            uint high = atomicOp!"+="(this.stateHigh,
+                atomicLoad(this.gammaHigh) + uint(low < this.gammaLow));
             return stateToVariate(low, high);
         }
         else static assert(false);
